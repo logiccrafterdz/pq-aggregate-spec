@@ -1,0 +1,57 @@
+[package]
+name = "pq-aggregate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["LogicCrafterDz"]
+description = "Post-quantum threshold signatures via independent key aggregation (IACR ePrint xxxx/107115)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LogicCrafterDz/pq-aggregate"
+keywords = ["post-quantum", "threshold-signatures", "ml-dsa", "dilithium", "nova"]
+categories = ["cryptography", "no-std"]
+
+[features]
+default = ["std"]
+std = ["sha3/std"]
+alloc = []
+nova = ["dep:nova-snark", "dep:bellpepper-core", "dep:bellpepper", "dep:ff", "dep:pasta_curves"]
+
+[dependencies]
+# ML-DSA (Dilithium) - Level 3 (ML-DSA-65)
+pqc_dilithium = { version = "0.2", default-features = false, features = ["mode3"] }
+
+# Cryptographic primitives
+sha3 = { version = "0.10", default-features = false }
+merlin = "3.0"
+
+# Error handling
+thiserror = { version = "1.0", default-features = false }
+
+# Serialization
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+
+# Security: zeroize sensitive data on drop
+zeroize = { version = "1.8", default-features = false, features = ["derive"] }
+
+# Random number generation
+rand = { version = "0.8", default-features = false }
+rand_core = { version = "0.6", default-features = false }
+getrandom = { version = "0.2", features = ["js"] }
+
+# Nova dependencies (optional)
+nova-snark = { version = "0.37", optional = true }
+bellpepper-core = { version = "0.4", optional = true }
+bellpepper = { version = "0.4", optional = true }
+ff = { version = "0.13", optional = true }
+pasta_curves = { version = "0.5", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[[example]]
+name = "basic"
