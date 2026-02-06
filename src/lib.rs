@@ -53,6 +53,7 @@ pub mod adapters;
 pub mod causal;
 pub mod policy;
 pub mod runtime;
+pub mod agents;
 
 #[cfg(feature = "nova")]
 pub mod nova;

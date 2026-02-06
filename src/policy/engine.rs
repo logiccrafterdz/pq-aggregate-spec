@@ -58,7 +58,6 @@ impl PolicyEngine {
 
         // 4. Aggregated compliance check
         let mut satisfied_conditions = Vec::new();
-        let mut failed_condition = None;
         let mut overall_risk = RiskTier::Low;
 
         for policy in &self.policies {
@@ -71,12 +70,11 @@ impl PolicyEngine {
                 if evaluator::evaluate_condition(condition, events, last_nonce) {
                     satisfied_conditions.push(idx);
                 } else {
-                    failed_condition = Some(idx);
                     return Ok(PolicyEvaluation {
                         compliant: false,
                         risk_tier: overall_risk,
                         satisfied_conditions,
-                        failed_condition,
+                        failed_condition: Some(idx),
                         evaluation_nonce: last_nonce,
                     });
                 }

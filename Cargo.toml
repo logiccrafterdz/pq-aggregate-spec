@@ -42,6 +42,7 @@ zeroize = { version = "1.8", default-features = false, features = ["derive"] }
 rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
+tokio = { version = "1.36", features = ["sync", "time", "macros", "rt", "rt-multi-thread"] }
 
 # Nova dependencies (optional)
 nova-snark = { version = "0.37", optional = true }

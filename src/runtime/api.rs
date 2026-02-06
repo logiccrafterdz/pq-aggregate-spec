@@ -35,9 +35,9 @@ pub struct ActionProposal {
 use crate::runtime::orchestrator::{CausalGuardOrchestrator, ActionState};
 use crate::runtime::signature_orchestrator::{SignatureOrchestrator, ValidatorRegistry, SignatureError};
 use crate::runtime::blockchain_adapter::{BlockchainAdapter, AdapterError};
-#[cfg(feature = "nova")]
 use crate::nova::unified_prover::UnifiedProof;
 use crate::causal::LoggerError;
+use crate::runtime::wallet_manager::WalletManager;
 
 pub struct CausalGuardRuntime {
     logger: CausalEventLogger,
@@ -45,6 +45,7 @@ pub struct CausalGuardRuntime {
     orchestrator: CausalGuardOrchestrator,
     signature_orchestrator: SignatureOrchestrator,
     blockchain_adapter: BlockchainAdapter,
+    _wallet: WalletManager,
     // Using a simple map for now to track status at the API level.
     action_states: HashMap<ActionId, ActionStatus>,
     rate_limits: HashMap<[u8; 32], u64>,
@@ -62,12 +63,14 @@ pub enum RuntimeError {
 
 impl CausalGuardRuntime {
     pub fn new(logger: CausalEventLogger, policy_engine: PolicyEngine) -> Self {
+        let wallet = WalletManager::new();
         Self {
             logger,
             policy_engine,
             orchestrator: CausalGuardOrchestrator::new(),
             signature_orchestrator: SignatureOrchestrator::new(ValidatorRegistry::new()),
-            blockchain_adapter: BlockchainAdapter::new(),
+            blockchain_adapter: BlockchainAdapter::new(wallet.clone()),
+            _wallet: wallet,
             action_states: HashMap::new(),
             rate_limits: HashMap::new(),
             idempotency_cache: HashMap::new(),
@@ -229,15 +232,22 @@ impl CausalGuardRuntime {
                 };
 
                 // Note: We handle both Nova and non-Nova cases here
-                let tx_hash = if cfg!(feature = "nova") {
+                #[cfg(feature = "nova")]
+                let tx_hash = {
                     if let Some(proof) = proof_opt {
                         self.blockchain_adapter.submit_unified_proof(&action_id, &proof, 1)
                             .map_err(|e: AdapterError| RuntimeError::InternalError(format!("{:?}", e)))?
                     } else {
-                        "tx_simulated_no_nova".to_string()
+                        // Fallback – unlikely in Signed state, but required for safety
+                        self.blockchain_adapter.submit_unified_proof(&action_id, &UnifiedProof { proof: vec![], root_hash: [0u8; 32] }, 1)
+                            .map_err(|e: AdapterError| RuntimeError::InternalError(format!("{:?}", e)))?
                     }
-                } else {
-                    "tx_simulated_no_nova".to_string()
+                };
+
+                #[cfg(not(feature = "nova"))]
+                let tx_hash = {
+                    self.blockchain_adapter.submit_unified_proof(&action_id, &[0u8; 32], 1)
+                        .map_err(|e: AdapterError| RuntimeError::InternalError(format!("{:?}", e)))?
                 };
                 
                 self.orchestrator.record_state(action_id, ActionState::Submitted { 
