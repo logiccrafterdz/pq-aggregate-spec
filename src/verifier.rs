@@ -265,4 +265,38 @@ mod tests {
 
         assert!(verify_super_proof(&super_proof, &batch_hashes));
     }
+
+    #[test]
+    fn test_validator_rotation_full_flow() {
+        // Epoch 1 set
+        let (sks1, pks1, root1) = setup(3);
+        // Epoch 2 set
+        let (_sks2, _pks2, root2) = setup(3);
+
+        // Create rotation proof signed by committee 1 authorizing committee 2
+        let rotation = crate::core::aggregation::create_rotation_proof(
+            &sks1, &pks1, root1, root2, 2, 2
+        ).unwrap();
+
+        // Verify rotation
+        assert!(verify_rotation_proof(&rotation, &root1));
+    }
+}
+
+/// Verify a RotationProof.
+/// 
+/// Validates that a transition from `old_root` to `new_root` was authorized
+/// by a threshold of the committee belonging to `old_root`.
+pub fn verify_rotation_proof(
+    rotation: &crate::types::RotationProof,
+    current_trusted_root: &[u8; 32],
+) -> bool {
+    // 1. Root matching
+    if rotation.old_root != *current_trusted_root {
+        return false;
+    }
+
+    // 2. SNARK Verification
+    // The "message" signed in a rotation is the new public key root.
+    verify(rotation.old_root, &rotation.new_root, &rotation.proof)
 }

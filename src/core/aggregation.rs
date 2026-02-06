@@ -337,3 +337,54 @@ pub fn aggregate_zk_proofs(proofs: Vec<ZKSNARKProof>) -> Result<crate::types::Su
         total_signatures,
     ))
 }
+
+/// Create a RotationProof to transition between committee sets.
+/// 
+/// A rotation involves proving that t-of-n validators of the *old* root
+/// signed a message containing the *new* root.
+pub fn create_rotation_proof(
+    old_sks: &[crate::types::SecretKey],
+    old_pks: &[crate::types::PublicKey],
+    old_root: [u8; 32],
+    new_root: [u8; 32],
+    epoch: u64,
+    threshold: usize,
+) -> Result<crate::types::RotationProof> {
+    // 1. Sign the new root as the message
+    let (sigs, proofs) = crate::core::signing::aggregate_sign(
+        old_sks, old_pks, &new_root, threshold
+    );
+
+    // 2. Aggregate into a SNARK proof
+    let zksnark = aggregate_proofs(sigs, proofs, old_root, &new_root)?;
+
+    // 3. Construct rotation proof
+    Ok(crate::types::RotationProof::new(
+        old_root,
+        new_root,
+        zksnark,
+        epoch,
+    ))
+}
+
+#[cfg(test)]
+mod rotation_tests {
+    use super::*;
+    use crate::core::keygen::setup;
+
+    #[test]
+    fn test_rotation_proof_creation() {
+        let (sks_old, pks_old, root_old) = setup(5);
+        let (_sks_new, _pks_new, root_new) = setup(5);
+
+        let result = create_rotation_proof(
+            &sks_old, &pks_old, root_old, root_new, 1, 3
+        );
+
+        assert!(result.is_ok());
+        let rotation = result.unwrap();
+        assert_eq!(rotation.old_root, root_old);
+        assert_eq!(rotation.new_root, root_new);
+        assert_eq!(rotation.epoch, 1);
+    }
+}

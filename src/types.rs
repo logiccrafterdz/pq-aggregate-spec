@@ -292,6 +292,28 @@ impl SuperProof {
     }
 }
 
+/// A "RotationProof" proves a transition from one public key root to another.
+/// 
+/// This is used to rotate the validator set. A threshold of the current 
+/// (old) committee must sign the new Merkle root.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RotationProof {
+    /// The old public key root (current state)
+    pub old_root: [u8; 32],
+    /// The new public key root (proposed state)
+    pub new_root: [u8; 32],
+    /// The aggregated ZK proof showing that t-of-n of OLD committee signed NEW_ROOT
+    pub proof: ZKSNARKProof,
+    /// Epoch number of this rotation
+    pub epoch: u64,
+}
+
+impl RotationProof {
+    pub fn new(old_root: [u8; 32], new_root: [u8; 32], proof: ZKSNARKProof, epoch: u64) -> Self {
+        Self { old_root, new_root, proof, epoch }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
