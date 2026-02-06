@@ -58,5 +58,13 @@ rand = "0.8"
 name = "benchmark"
 harness = false
 
+[[bench]]
+name = "causal_logger_bench"
+harness = false
+
+[[bench]]
+name = "policy_evaluation_bench"
+harness = false
+
 [[example]]
 name = "basic"
