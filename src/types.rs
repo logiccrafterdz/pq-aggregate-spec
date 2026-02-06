@@ -314,6 +314,19 @@ impl RotationProof {
     }
 }
 
+/// A policy for validating the number of signatures in a proof.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ThresholdPolicy {
+    /// Exactly T signatures required
+    Fixed(usize),
+    /// At least T signatures required
+    AtLeast(usize),
+    /// At least X% of N validators required (0..100)
+    Percentage(u8),
+    /// Multi-tiered logic: Low (33%), Medium (50%), High (67%)
+    Tiered { level: u8 },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

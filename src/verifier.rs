@@ -300,3 +300,72 @@ pub fn verify_rotation_proof(
     // The "message" signed in a rotation is the new public key root.
     verify(rotation.old_root, &rotation.new_root, &rotation.proof)
 }
+
+/// Verify an aggregated proof against a specific ThresholdPolicy.
+/// 
+/// This is the "Adaptive Threshold Gadget" which enforces dynamic security
+/// requirements (e.g., higher threshold for high-value transactions).
+pub fn verify_with_policy(
+    pk_root: [u8; 32],
+    msg: &[u8],
+    proof: &crate::types::ZKSNARKProof,
+    total_validators: usize,
+    policy: &crate::types::ThresholdPolicy,
+) -> bool {
+    // 1. Standard SNARK verification
+    if !verify(pk_root, msg, proof) {
+        return false;
+    }
+
+    // 2. Policy enforcement (The Gadget)
+    let t = proof.num_signatures();
+    let n = total_validators;
+
+    match policy {
+        crate::types::ThresholdPolicy::Fixed(req) => t == *req,
+        crate::types::ThresholdPolicy::AtLeast(req) => t >= *req,
+        crate::types::ThresholdPolicy::Percentage(pct) => {
+            let req = crate::utils::calculate_adaptive_threshold(n, 0); // Base logic
+            // Custom percentage calculation
+            let min_req = (n * (*pct as usize) + 99) / 100;
+            t >= min_req
+        },
+        crate::types::ThresholdPolicy::Tiered { level } => {
+            let req = crate::utils::calculate_adaptive_threshold(n, *level);
+            t >= req
+        }
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::*;
+    use crate::core::keygen::setup;
+    use crate::core::signing::aggregate_sign;
+    use crate::core::aggregation::aggregate_proofs;
+    use crate::types::ThresholdPolicy;
+
+    #[test]
+    fn test_verify_with_various_policies() {
+        let n = 10;
+        let (sks, pks, pk_root) = setup(n);
+        let msg = b"policy test";
+
+        // Create a proof with 7 signatures (70%)
+        let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 7);
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+
+        // 1. Fixed Policy
+        assert!(verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Fixed(7)));
+        assert!(!verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Fixed(5)));
+
+        // 2. Percentage Policy (70% required)
+        assert!(verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Percentage(70)));
+        assert!(!verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Percentage(80)));
+
+        // 3. Tiered Policy (Level 2 = 67%)
+        assert!(verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Tiered { level: 2 }));
+        // Level 3 = 80% (requires 8, we have 7)
+        assert!(!verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Tiered { level: 3 }));
+    }
+}
