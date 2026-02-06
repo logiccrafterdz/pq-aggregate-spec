@@ -28,8 +28,9 @@ pub struct CausalEventLogger {
     last_timestamp: u64,
     merkle_tree: IncrementalMerkleTree,
     /// Store leaves to support generate_proof. 
-    /// Note: In a production small-memory system, these would be in flash.
     leaves: Vec<[u8; 32]>,
+    /// Store actual events for policy evaluation.
+    events: Vec<CausalEvent>,
 }
 
 impl CausalEventLogger {
@@ -40,6 +41,7 @@ impl CausalEventLogger {
             last_timestamp: 0,
             merkle_tree: IncrementalMerkleTree::new(),
             leaves: Vec::new(),
+            events: Vec::new(),
         }
     }
 
@@ -88,6 +90,7 @@ impl CausalEventLogger {
         let leaf = event.to_leaf();
         self.merkle_tree.insert(leaf);
         self.leaves.push(leaf);
+        self.events.push(event.clone());
 
         Ok(event)
     }
@@ -156,5 +159,14 @@ impl CausalEventLogger {
 
         let tree = crate::utils::MerkleTree::from_leaves(&leaves);
         tree.root() == *expected_root
+    }
+
+    /// Get a range of events for policy evaluation.
+    pub fn get_events_range(&self, start: usize, end: usize) -> Result<Vec<CausalEvent>, LoggerError> {
+        let actual_end = core::cmp::min(end, self.events.len());
+        if start > actual_end {
+            return Ok(Vec::new());
+        }
+        Ok(self.events[start..actual_end].to_vec())
     }
 }

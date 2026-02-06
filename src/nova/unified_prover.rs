@@ -12,7 +12,7 @@ use crate::nova::behavioral_circuit::{BehavioralVerificationCircuit, UnifiedCirc
 use crate::nova::params::{UnifiedPparams, S1, S2};
 use crate::error::PQAggregateError;
 
-/// Serialized unified proof.
+#[derive(Debug, Clone)]
 pub struct UnifiedProof {
     pub proof: Vec<u8>,
     pub root_hash: [u8; 32],
