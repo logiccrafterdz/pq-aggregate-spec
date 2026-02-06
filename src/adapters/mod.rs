@@ -105,6 +105,7 @@ impl VerificationHint {
 
 pub mod solana;
 pub mod ethereum;
+pub mod cosmos;
 
 /// A default adapter for systems that don't need chain-specific encoding.
 pub struct DefaultAdapter;
