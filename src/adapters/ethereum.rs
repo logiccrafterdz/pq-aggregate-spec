@@ -25,9 +25,10 @@ impl BlockchainAdapter for EthereumAdapter {
     fn encode_proof(&self, proof: &ZKSNARKProof) -> Vec<u8> {
         // Ethereum prefers ABI-packed data.
         // For a simple proof, we'll prefix with length for ABI compatibility.
-        let mut out = Vec::with_capacity(4 + proof.size());
-        out.extend_from_slice(&(proof.size() as u32).to_be_bytes()); // Length as uint32 (big-endian for EVM)
-        out.extend_from_slice(proof.as_bytes());
+        let bytes = proof.to_bytes();
+        let mut out = Vec::with_capacity(4 + bytes.len());
+        out.extend_from_slice(&(bytes.len() as u32).to_be_bytes()); // Length as uint32 (big-endian for EVM)
+        out.extend_from_slice(&bytes);
         out
     }
     
@@ -111,7 +112,7 @@ mod tests {
         let proof = ZKSNARKProof::new(vec![1, 2, 3], 10, [0xFF; 32]);
         
         let encoded = adapter.encode_proof(&proof);
-        assert_eq!(u32::from_be_bytes([encoded[0], encoded[1], encoded[2], encoded[3]]), 3);
+        assert_eq!(u32::from_be_bytes([encoded[0], encoded[1], encoded[2], encoded[3]]), 42);
     }
 
     #[test]
