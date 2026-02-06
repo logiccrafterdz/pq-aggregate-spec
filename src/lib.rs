@@ -50,6 +50,7 @@ pub mod types;
 pub mod utils;
 pub mod verifier;
 pub mod adapters;
+pub mod causal;
 
 #[cfg(feature = "nova")]
 pub mod nova;
