@@ -210,4 +210,55 @@ criterion_group!(
     bench_proof_size,
 );
 
+#[cfg(feature = "nova")]
+mod nova_benches {
+    use super::*;
+    use pq_aggregate::nova::{params::gen_params, prover::{prove_batch, setup_keys, verify_proof}};
+    use pasta_curves::pallas;
+    use ff::Field;
+
+    /// Benchmark Nova O(1) verification.
+    pub fn bench_nova_verify(c: &mut Criterion) {
+        let mut group = c.benchmark_group("nova_verify");
+
+        // Generate params once (expensive)
+        println!("Generating Nova public parameters...");
+        let params = gen_params();
+        let (pk, vk) = setup_keys(&params).expect("Key setup failed");
+
+        // Pre-generate proof for different step counts
+        for steps in [1, 3, 5, 10].iter() {
+            println!("Generating proof for {} steps...", steps);
+            let proof = prove_batch(&params, *steps, &pk).expect("Proving failed");
+
+            let z0 = vec![pallas::Scalar::ZERO; 2];
+            let zn = z0.clone();
+
+            group.bench_with_input(
+                BenchmarkId::new("steps", steps),
+                &(&vk, &proof, *steps, &z0, &zn),
+                |b, (vk, proof, steps, z0, zn)| {
+                    b.iter(|| {
+                        let valid = verify_proof(vk, proof, *steps, z0, zn);
+                        black_box(valid)
+                    });
+                },
+            );
+        }
+
+        group.finish();
+    }
+}
+
+#[cfg(feature = "nova")]
+criterion_group!(
+    nova_bench_group,
+    nova_benches::bench_nova_verify,
+);
+
+#[cfg(not(feature = "nova"))]
 criterion_main!(benches);
+
+#[cfg(feature = "nova")]
+criterion_main!(benches, nova_bench_group);
+

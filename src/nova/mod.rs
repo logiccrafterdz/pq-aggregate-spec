@@ -17,11 +17,9 @@ pub mod prover;
 #[cfg(test)]
 #[cfg(feature = "nova")]
 mod tests {
-    use super::*;
     use crate::nova::params::gen_params;
     use crate::nova::prover::{prove_batch, verify_proof, setup_keys};
     use pasta_curves::pallas;
-    use ff::Field;
     use std::time::Instant;
 
     #[test]

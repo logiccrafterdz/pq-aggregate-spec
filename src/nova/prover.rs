@@ -4,7 +4,7 @@
 //! into Nova folding steps.
 
 use nova_snark::{RecursiveSNARK, CompressedSNARK, VerifierKey};
-use nova_snark::traits::circuit::TrivialCircuit;
+
 use nova_snark::provider::{PallasEngine, VestaEngine};
 use pasta_curves::pallas;
 

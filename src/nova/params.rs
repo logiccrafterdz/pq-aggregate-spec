@@ -2,7 +2,7 @@ use nova_snark::{
     provider::{PallasEngine, VestaEngine, ipa_pc::EvaluationEngine},
     PublicParams, 
     spartan::snark::RelaxedR1CSSNARK,
-    traits::{evaluation::EvaluationEngineTrait, snark::RelaxedR1CSSNARKTrait}
+    traits::snark::RelaxedR1CSSNARKTrait
 };
 use pasta_curves::{pallas, vesta};
 
