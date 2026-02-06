@@ -15,6 +15,7 @@ default = ["std"]
 std = ["sha3/std"]
 alloc = []
 nova = ["dep:nova-snark", "dep:bellpepper-core", "dep:bellpepper", "dep:ff", "dep:pasta_curves"]
+compression = ["dep:miniz_oxide"]
 
 [dependencies]
 # ML-DSA (Dilithium) - Level 3 (ML-DSA-65)
@@ -27,8 +28,12 @@ merlin = "3.0"
 # Error handling
 thiserror = { version = "1.0", default-features = false }
 
+# Compression (optional)
+miniz_oxide = { version = "0.7", optional = true }
+
 # Serialization
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 
 # Security: zeroize sensitive data on drop
 zeroize = { version = "1.8", default-features = false, features = ["derive"] }

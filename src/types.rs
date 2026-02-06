@@ -223,6 +223,45 @@ impl ZKSNARKProof {
             public_inputs_hash,
         })
     }
+
+    /// Compress the proof bytes using DEFLATE (miniz_oxide).
+    /// 
+    /// Only available if the `compression` feature is enabled.
+    #[cfg(feature = "compression")]
+    pub fn compress(&self) -> Vec<u8> {
+        miniz_oxide::deflate::compress_to_vec(&self.to_bytes(), 6)
+    }
+
+    /// Decompress a proof from DEFLATE bytes.
+    #[cfg(feature = "compression")]
+    pub fn decompress(bytes: &[u8]) -> Option<Self> {
+        let decompressed = miniz_oxide::inflate::decompress_to_vec(bytes).ok()?;
+        Self::from_bytes(&decompressed)
+    }
+}
+
+/// A creative "ProofBatch" for high-density multi-proof storage.
+/// 
+/// Instead of storing individual proofs, we aggregate them into a single blob
+/// and apply layer-2 compression for massive space savings in rollups.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProofBatch {
+    pub proofs: Vec<ZKSNARKProof>,
+    pub metadata: Vec<u8>,
+}
+
+impl ProofBatch {
+    pub fn new(proofs: Vec<ZKSNARKProof>) -> Self {
+        Self { proofs, metadata: Vec::new() }
+    }
+
+    /// Serialize and compress the entire batch.
+    #[cfg(feature = "compression")]
+    pub fn to_compressed_blob(&self) -> Vec<u8> {
+        // Serialization of Vec<ZKSNARKProof> is already handled by serde
+        let bincode = serde_json::to_vec(self).unwrap_or_default();
+        miniz_oxide::deflate::compress_to_vec(&bincode, 9) // Max compression
+    }
 }
 
 #[cfg(test)]
@@ -243,6 +282,23 @@ mod tests {
         assert_eq!(recovered.num_signatures(), 42);
         assert_eq!(recovered.public_inputs_hash(), &[0xAB; 32]);
         assert_eq!(recovered.as_bytes(), &[1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    #[cfg(feature = "compression")]
+    fn test_zksnark_proof_compression() {
+        // Create a proof with redundant data to test compression
+        let original = ZKSNARKProof::new(
+            vec![0u8; 1000],
+            100,
+            [0; 32],
+        );
+
+        let compressed = original.compress();
+        let decompressed = ZKSNARKProof::decompress(&compressed).expect("Decompression failed");
+
+        assert_eq!(decompressed.num_signatures(), 100);
+        assert!(compressed.len() < original.to_bytes().len());
     }
 
     #[test]
