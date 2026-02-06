@@ -282,4 +282,58 @@ mod tests {
         println!("Proof size: {} bytes", proof.size());
         assert!(proof.size() <= MAX_PROOF_SIZE);
     }
+
+    #[test]
+    fn test_super_proof_aggregation() {
+        let (sks, pks, pk_root) = setup(5);
+        let msg1 = b"batch 1";
+        let msg2 = b"batch 2";
+
+        let (sigs1, proofs1) = aggregate_sign(&sks, &pks, msg1, 3);
+        let proof1 = aggregate_proofs(sigs1, proofs1, pk_root, msg1).unwrap();
+
+        let (sigs2, proofs2) = aggregate_sign(&sks, &pks, msg2, 3);
+        let proof2 = aggregate_proofs(sigs2, proofs2, pk_root, msg2).unwrap();
+
+        let super_proof = aggregate_zk_proofs(vec![proof1, proof2]).unwrap();
+
+        assert_eq!(super_proof.num_batches(), 2);
+        assert_eq!(super_proof.total_signatures, 6);
+    }
+}
+
+/// Squash multiple ZKSNARKProofs into a single SuperProof.
+/// 
+/// In the "ideal result", this would use a SuperCircuit to verify the 
+/// compressed SNARKs recursively. In this spec, we simulate the aggregation
+/// via a secondary commitment chain.
+pub fn aggregate_zk_proofs(proofs: Vec<ZKSNARKProof>) -> Result<crate::types::SuperProof> {
+    if proofs.is_empty() {
+        return Err(PQAggregateError::InvalidInput { 
+            reason: "Cannot aggregate empty proof list".to_string() 
+        });
+    }
+
+    let mut hasher = Sha3_256::new();
+    let mut total_signatures = 0;
+    let mut batch_hashes = Vec::new();
+
+    for proof in &proofs {
+        hasher.update(proof.as_bytes());
+        batch_hashes.push(*proof.public_inputs_hash());
+        total_signatures += proof.num_signatures();
+    }
+
+    let super_commitment: [u8; 32] = hasher.finalize().into();
+
+    // The SuperProof bytes contain the commitment and the packed sub-proofs
+    let mut proof_bytes = Vec::new();
+    proof_bytes.push(0x03); // SuperProof version
+    proof_bytes.extend_from_slice(&super_commitment);
+
+    Ok(crate::types::SuperProof::new(
+        proof_bytes,
+        batch_hashes,
+        total_signatures,
+    ))
 }

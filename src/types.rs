@@ -264,6 +264,34 @@ impl ProofBatch {
     }
 }
 
+/// A "SuperProof" squashes multiple ZKSNARKProofs into a single one.
+/// 
+/// This is the "ideal result" for L2 rollups, where thousands of signatures
+/// from different epochs/batches are verified in a single O(1) step.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SuperProof {
+    /// Compressed super-proof bytes
+    pub(crate) proof_bytes: Vec<u8>,
+    /// List of public input hashes verified by this super-proof
+    pub(crate) batch_hashes: Vec<[u8; 32]>,
+    /// Total signatures covered
+    pub(crate) total_signatures: usize,
+}
+
+impl SuperProof {
+    pub fn new(proof_bytes: Vec<u8>, batch_hashes: Vec<[u8; 32]>, total_signatures: usize) -> Self {
+        Self { proof_bytes, batch_hashes, total_signatures }
+    }
+
+    pub fn size(&self) -> usize {
+        self.proof_bytes.len()
+    }
+
+    pub fn num_batches(&self) -> usize {
+        self.batch_hashes.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

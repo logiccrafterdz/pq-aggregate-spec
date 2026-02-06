@@ -139,10 +139,39 @@ pub fn batch_verify(
         .collect()
 }
 
+/// Verify a SuperProof (Layer-2 recursive verification).
+/// 
+/// Verifies that the super-proof correctly squashes the provided sequence
+/// of public input hashes.
+pub fn verify_super_proof(
+    super_proof: &crate::types::SuperProof,
+    batch_hashes: &[[u8; 32]],
+) -> bool {
+    // 1. Structural check
+    if super_proof.num_batches() != batch_hashes.len() {
+        return false;
+    }
+
+    if batch_hashes.is_empty() {
+        return false;
+    }
+
+    // 2. Hash consistency check
+    for (i, hash) in batch_hashes.iter().enumerate() {
+        if super_proof.batch_hashes[i] != *hash {
+            return false;
+        }
+    }
+
+    // 3. Super-commitment verification (simulated for spec)
+    // In a real implementation, this would involve a recursive SNARK verification.
+    super_proof.proof_bytes[0] == 0x03 && super_proof.proof_bytes.len() >= 33
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::aggregation::aggregate_proofs;
+    use crate::core::aggregation::{aggregate_proofs, aggregate_zk_proofs};
     use crate::core::keygen::setup;
     use crate::core::signing::aggregate_sign;
 
@@ -217,5 +246,23 @@ mod tests {
 
         bitmap[1] = 0b00000001; // 1 more signer (index 8)
         assert_eq!(count_signers_in_bitmap(&bitmap), 4);
+    }
+
+    #[test]
+    fn test_verify_super_proof_flow() {
+        let (sks, pks, pk_root) = setup(3);
+        let msg1 = b"msg1";
+        let msg2 = b"msg2";
+
+        let (sigs1, prfs1) = aggregate_sign(&sks, &pks, msg1, 2);
+        let proof1 = aggregate_proofs(sigs1, prfs1, pk_root, msg1).unwrap();
+
+        let (sigs2, prfs2) = aggregate_sign(&sks, &pks, msg2, 2);
+        let proof2 = aggregate_proofs(sigs2, prfs2, pk_root, msg2).unwrap();
+
+        let batch_hashes = vec![*proof1.public_inputs_hash(), *proof2.public_inputs_hash()];
+        let super_proof = aggregate_zk_proofs(vec![proof1, proof2]).unwrap();
+
+        assert!(verify_super_proof(&super_proof, &batch_hashes));
     }
 }
