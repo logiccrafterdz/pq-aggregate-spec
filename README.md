@@ -30,3 +30,21 @@ pq-aggregate = { git = "https://github.com/LogicCrafterDz/pq-aggregate-spec", fe
 | **Solana** | `SolanaAdapter` | Instruction gen, PDA derivation |
 | **Ethereum** | `EthereumAdapter` | ABI-compatible calldata, Solidity interface |
 | **Cosmos** | `CosmosAdapter` | Protobuf encoding, IBC packet wrapping |
+
+## Architectural Overview
+
+PQ-Aggregate provides a multi-layered cryptographic security system designed for high-performance blockchain environments:
+
+### Layered Proof System
+1.  **Layer 0 (ML-DSA)**: Individual validators generate post-quantum signatures.
+2.  **Layer 1 (NovaSNARK)**: Multiple signatures are folded into a single O(1) proof using recursive SNARKs.
+3.  **Layer 2 (Super-Proofs)**: Multiple SNARK batches are squashed into "Super-Proofs" for massive throughput (e.g., L2 rollups).
+
+###  Blockchain Interoperability
+The **Bridge Hub** allows proofs to travel between chains:
+- **Proof Translation**: Convert Ethereum proofs to Solana format without re-signing.
+- **Provenance Verification**: Verify that a proof originated from a specific source chain.
+
+### Security Gadgets
+- **Adaptive Thresholds**: Dynamic $t$-of-$n$ logic enforced at the verifier/circuit boundary.
+- **Validator Rotation**: Secure Merkle root transitions authorized by the outgoing committee.
