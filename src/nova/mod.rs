@@ -7,6 +7,10 @@
 
 #[cfg(feature = "nova")]
 pub mod circuit;
+#[cfg(feature = "nova")]
+pub mod behavioral_circuit;
+#[cfg(feature = "nova")]
+pub mod unified_prover;
 
 #[cfg(feature = "nova")]
 pub mod params;

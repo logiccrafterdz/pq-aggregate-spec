@@ -4,6 +4,8 @@
 
 use sha3::{Digest, Sha3_256};
 
+pub mod unified;
+
 use crate::types::ZKSNARKProof;
 
 /// Verify an aggregated proof against the public key root and message.
