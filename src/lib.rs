@@ -49,6 +49,7 @@ pub mod error;
 pub mod types;
 pub mod utils;
 pub mod verifier;
+pub mod adapters;
 
 #[cfg(feature = "nova")]
 pub mod nova;
