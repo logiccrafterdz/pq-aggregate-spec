@@ -160,4 +160,100 @@ impl ZKSNARKProof {
     pub fn size(&self) -> usize {
         self.proof_bytes.len()
     }
+
+    /// Serialize to compact binary format for on-chain submission.
+    /// 
+    /// Format: [version:1][num_sigs:2][inputs_hash:32][proof_len:4][proof_bytes:N]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(39 + self.proof_bytes.len());
+        
+        // Version byte
+        out.push(0x02);
+        
+        // Number of signatures (2 bytes, little-endian)
+        out.extend_from_slice(&(self.num_signatures as u16).to_le_bytes());
+        
+        // Public inputs hash (32 bytes)
+        out.extend_from_slice(&self.public_inputs_hash);
+        
+        // Proof length (4 bytes, little-endian)
+        out.extend_from_slice(&(self.proof_bytes.len() as u32).to_le_bytes());
+        
+        // Proof bytes
+        out.extend_from_slice(&self.proof_bytes);
+        
+        out
+    }
+
+    /// Deserialize from compact binary format.
+    /// 
+    /// Returns `None` if the bytes are malformed.
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        // Minimum size: version(1) + num_sigs(2) + hash(32) + len(4) = 39
+        if bytes.len() < 39 {
+            return None;
+        }
+
+        // Check version
+        if bytes[0] != 0x02 {
+            return None;
+        }
+
+        // Parse num_signatures
+        let num_signatures = u16::from_le_bytes([bytes[1], bytes[2]]) as usize;
+
+        // Parse public_inputs_hash
+        let mut public_inputs_hash = [0u8; 32];
+        public_inputs_hash.copy_from_slice(&bytes[3..35]);
+
+        // Parse proof length
+        let proof_len = u32::from_le_bytes([bytes[35], bytes[36], bytes[37], bytes[38]]) as usize;
+
+        // Validate total length
+        if bytes.len() != 39 + proof_len {
+            return None;
+        }
+
+        // Extract proof bytes
+        let proof_bytes = bytes[39..].to_vec();
+
+        Some(Self {
+            proof_bytes,
+            num_signatures,
+            public_inputs_hash,
+        })
+    }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zksnark_proof_serialization_roundtrip() {
+        let original = ZKSNARKProof::new(
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+            42,
+            [0xAB; 32],
+        );
+
+        let bytes = original.to_bytes();
+        let recovered = ZKSNARKProof::from_bytes(&bytes).expect("Deserialization failed");
+
+        assert_eq!(recovered.num_signatures(), 42);
+        assert_eq!(recovered.public_inputs_hash(), &[0xAB; 32]);
+        assert_eq!(recovered.as_bytes(), &[1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn test_zksnark_proof_from_bytes_invalid() {
+        // Too short
+        assert!(ZKSNARKProof::from_bytes(&[0x02; 10]).is_none());
+        
+        // Wrong version
+        let mut bad_version = vec![0x01]; // Wrong version
+        bad_version.extend_from_slice(&[0; 38]);
+        assert!(ZKSNARKProof::from_bytes(&bad_version).is_none());
+    }
+}
+
