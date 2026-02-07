@@ -56,7 +56,7 @@ fn main() {
     // Step 3: Aggregate - Combine into ZK proof
     println!("🔗 Step 3: Aggregating signatures into ZK proof...");
     let start = std::time::Instant::now();
-    let proof = aggregate_proofs(signatures, merkle_proofs, pk_root, message)
+    let proof = aggregate_proofs(signatures, merkle_proofs, pk_root, message, &public_keys)
         .expect("Aggregation should succeed");
     let aggregate_time = start.elapsed();
 

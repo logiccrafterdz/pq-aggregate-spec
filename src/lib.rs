@@ -99,7 +99,7 @@ mod integration_tests {
         assert_eq!(proofs.len(), t);
 
         // Aggregate
-        let zk_proof = aggregate_proofs(sigs, proofs, pk_root, msg);
+        let zk_proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks);
         assert!(zk_proof.is_ok());
 
         let proof = zk_proof.unwrap();
@@ -115,7 +115,7 @@ mod integration_tests {
         let msg = b"original";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 2);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         // Verify with wrong message should fail
         assert!(!verify(pk_root, b"tampered", &proof));
@@ -127,7 +127,7 @@ mod integration_tests {
         let msg = b"test";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 2);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         // Verify with wrong root should fail
         let wrong_root = [0xFFu8; 32];
@@ -145,7 +145,7 @@ mod integration_tests {
         let msg = b"adaptive test";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, t);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         assert!(verify(pk_root, msg, &proof));
     }

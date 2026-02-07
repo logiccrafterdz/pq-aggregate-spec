@@ -1,3 +1,5 @@
+#![cfg(feature = "nova")]
+
 use pq_aggregate::causal::{CausalEventLogger};
 use pq_aggregate::policy::{PolicyEngine, BehavioralPolicy, PolicyCondition, RiskTier};
 use pq_aggregate::nova::unified_prover::{UnifiedProver};
@@ -7,7 +9,6 @@ use pq_aggregate::setup;
 use pasta_curves::pallas;
 
 #[test]
-#[cfg(feature = "nova")]
 fn test_tc_3_1_valid_high_risk_threshold_5() {
     let mut logger = CausalEventLogger::new([0u8; 32]);
     let agent_id = [0xAA; 32];
@@ -62,7 +63,6 @@ fn test_tc_3_1_valid_high_risk_threshold_5() {
 }
 
 #[test]
-#[cfg(feature = "nova")]
 fn test_tc_3_2_threshold_mismatch_fails() {
     let mut logger = CausalEventLogger::new([0u8; 32]);
     let agent_id = [0xAA; 32];
@@ -100,7 +100,6 @@ fn test_tc_3_2_threshold_mismatch_fails() {
 }
 
 #[test]
-#[cfg(feature = "nova")]
 fn test_tc_3_3_valid_low_risk_threshold_2() {
     let mut logger = CausalEventLogger::new([0u8; 32]);
     let agent_id = [0xAA; 32];
@@ -126,7 +125,6 @@ fn test_tc_3_3_valid_low_risk_threshold_2() {
 }
 
 #[test]
-#[cfg(feature = "nova")]
 fn test_tc_3_4_policy_violation_fails() {
     let mut logger = CausalEventLogger::new([0u8; 32]);
     let agent_id = [0xAA; 32];
@@ -153,7 +151,6 @@ fn test_tc_3_4_policy_violation_fails() {
 }
 
 #[test]
-#[cfg(feature = "nova")]
 fn test_tc_3_5_outflow_limit_fails() {
     let mut logger = CausalEventLogger::new([0u8; 32]);
     let agent_id = [0xAA; 32];

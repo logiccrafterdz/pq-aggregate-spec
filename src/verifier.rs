@@ -4,6 +4,7 @@
 
 use sha3::{Digest, Sha3_256};
 
+#[cfg(feature = "nova")]
 pub mod unified;
 
 use crate::types::ZKSNARKProof;
@@ -183,7 +184,7 @@ mod tests {
         let msg = b"test message";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 3);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         assert!(verify(pk_root, msg, &proof));
     }
@@ -194,7 +195,7 @@ mod tests {
         let msg = b"original";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 2);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         assert!(!verify(pk_root, b"wrong", &proof));
     }
@@ -205,7 +206,7 @@ mod tests {
         let msg = b"test";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 2);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         let wrong_root = [0x42u8; 32];
         assert!(!verify(wrong_root, msg, &proof));
@@ -221,8 +222,8 @@ mod tests {
         let (sigs1, proofs1) = aggregate_sign(&sks, &pks, msg1, 2);
         let (sigs2, proofs2) = aggregate_sign(&sks, &pks, msg2, 2);
 
-        let proof1 = aggregate_proofs(sigs1, proofs1, pk_root, msg1).unwrap();
-        let proof2 = aggregate_proofs(sigs2, proofs2, pk_root, msg2).unwrap();
+        let proof1 = aggregate_proofs(sigs1, proofs1, pk_root, msg1, &pks).unwrap();
+        let proof2 = aggregate_proofs(sigs2, proofs2, pk_root, msg2, &pks).unwrap();
 
         let results = batch_verify(
             pk_root,
@@ -257,10 +258,10 @@ mod tests {
         let msg2 = b"msg2";
 
         let (sigs1, prfs1) = aggregate_sign(&sks, &pks, msg1, 2);
-        let proof1 = aggregate_proofs(sigs1, prfs1, pk_root, msg1).unwrap();
+        let proof1 = aggregate_proofs(sigs1, prfs1, pk_root, msg1, &pks).unwrap();
 
         let (sigs2, prfs2) = aggregate_sign(&sks, &pks, msg2, 2);
-        let proof2 = aggregate_proofs(sigs2, prfs2, pk_root, msg2).unwrap();
+        let proof2 = aggregate_proofs(sigs2, prfs2, pk_root, msg2, &pks).unwrap();
 
         let batch_hashes = vec![*proof1.public_inputs_hash(), *proof2.public_inputs_hash()];
         let super_proof = aggregate_zk_proofs(vec![proof1, proof2]).unwrap();
@@ -355,7 +356,7 @@ mod policy_tests {
 
         // Create a proof with 7 signatures (70%)
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 7);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         // 1. Fixed Policy
         assert!(verify_with_policy(pk_root, msg, &proof, n, &ThresholdPolicy::Fixed(7)));

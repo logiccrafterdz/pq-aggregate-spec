@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use sha3::{Digest, Sha3_256};
 
 use crate::error::{PQAggregateError, Result};
-use crate::types::{MerkleProof, Signature, ZKSNARKProof};
+use crate::types::{MerkleProof, PublicKey, Signature, ZKSNARKProof};
 use crate::utils::MerkleTree;
 
 /// Maximum proof size in bytes (target: ≤1.2 KB).
@@ -31,12 +31,14 @@ pub const MAX_PROOF_SIZE: usize = 1228;
 ///
 /// # Security
 /// - All Merkle proofs must verify against `pk_root`
+/// - Each signature is verified against its corresponding public key
 /// - The proof commits to all signatures and the message
 pub fn aggregate_proofs(
     sigs: Vec<Signature>,
     proofs: Vec<MerkleProof>,
     pk_root: [u8; 32],
     msg: &[u8],
+    pks: &[PublicKey],
 ) -> Result<ZKSNARKProof> {
     // Validate inputs
     if sigs.is_empty() {
@@ -58,6 +60,21 @@ pub fn aggregate_proofs(
             return Err(PQAggregateError::MerkleProofInvalid {
                 index: i,
                 reason: "Proof does not verify against pk_root".to_string(),
+            });
+        }
+    }
+
+    // Verify each ML-DSA signature against its public key
+    for (i, sig) in sigs.iter().enumerate() {
+        let signer_idx = sig.signer_index();
+        if signer_idx >= pks.len() {
+            return Err(PQAggregateError::InvalidInput {
+                reason: alloc::format!("Signer index {} out of bounds (have {} keys)", signer_idx, pks.len()),
+            });
+        }
+        if !crate::core::signing::verify_single(&pks[signer_idx], msg, sig) {
+            return Err(PQAggregateError::InvalidInput {
+                reason: alloc::format!("Signature from signer {} failed ML-DSA verification", signer_idx),
             });
         }
     }
@@ -208,7 +225,7 @@ mod tests {
         let msg = b"test message";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 3);
-        let result = aggregate_proofs(sigs, proofs, pk_root, msg);
+        let result = aggregate_proofs(sigs, proofs, pk_root, msg, &pks);
 
         assert!(result.is_ok());
         let proof = result.unwrap();
@@ -225,7 +242,7 @@ mod tests {
 
         // Use wrong root
         let wrong_root = [0xFFu8; 32];
-        let result = aggregate_proofs(sigs, proofs, wrong_root, msg);
+        let result = aggregate_proofs(sigs, proofs, wrong_root, msg, &pks);
 
         assert!(matches!(
             result,
@@ -235,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_aggregate_proofs_empty_fails() {
-        let result = aggregate_proofs(Vec::new(), Vec::new(), [0u8; 32], b"msg");
+        let result = aggregate_proofs(Vec::new(), Vec::new(), [0u8; 32], b"msg", &[]);
 
         assert!(matches!(
             result,
@@ -251,7 +268,7 @@ mod tests {
         let (sigs, mut proofs) = aggregate_sign(&sks, &pks, msg, 3);
         proofs.pop(); // Remove one proof
 
-        let result = aggregate_proofs(sigs, proofs, pk_root, msg);
+        let result = aggregate_proofs(sigs, proofs, pk_root, msg, &pks);
 
         assert!(matches!(
             result,
@@ -265,7 +282,7 @@ mod tests {
         let msg = b"test";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 2);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         assert!(validate_proof_structure(&proof));
     }
@@ -276,7 +293,7 @@ mod tests {
         let msg = b"test message for size check";
 
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, 10);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         // Proof should be compact
         println!("Proof size: {} bytes", proof.size());
@@ -290,10 +307,10 @@ mod tests {
         let msg2 = b"batch 2";
 
         let (sigs1, proofs1) = aggregate_sign(&sks, &pks, msg1, 3);
-        let proof1 = aggregate_proofs(sigs1, proofs1, pk_root, msg1).unwrap();
+        let proof1 = aggregate_proofs(sigs1, proofs1, pk_root, msg1, &pks).unwrap();
 
         let (sigs2, proofs2) = aggregate_sign(&sks, &pks, msg2, 3);
-        let proof2 = aggregate_proofs(sigs2, proofs2, pk_root, msg2).unwrap();
+        let proof2 = aggregate_proofs(sigs2, proofs2, pk_root, msg2, &pks).unwrap();
 
         let super_proof = aggregate_zk_proofs(vec![proof1, proof2]).unwrap();
 
@@ -356,7 +373,7 @@ pub fn create_rotation_proof(
     );
 
     // 2. Aggregate into a SNARK proof
-    let zksnark = aggregate_proofs(sigs, proofs, old_root, &new_root)?;
+    let zksnark = aggregate_proofs(sigs, proofs, old_root, &new_root, old_pks)?;
 
     // 3. Construct rotation proof
     Ok(crate::types::RotationProof::new(

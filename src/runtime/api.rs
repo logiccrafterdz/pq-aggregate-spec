@@ -35,6 +35,7 @@ pub struct ActionProposal {
 use crate::runtime::orchestrator::{CausalGuardOrchestrator, ActionState};
 use crate::runtime::signature_orchestrator::{SignatureOrchestrator, ValidatorRegistry, SignatureError};
 use crate::runtime::blockchain_adapter::{BlockchainAdapter, AdapterError};
+#[cfg(feature = "nova")]
 use crate::nova::unified_prover::UnifiedProof;
 use crate::causal::LoggerError;
 use crate::runtime::wallet_manager::WalletManager;
@@ -219,26 +220,21 @@ impl CausalGuardRuntime {
             },
             ActionStatus::Signed => {
                 // 4. Blockchain Submission
-                let proof_opt = if let Some(state) = self.orchestrator.get_state(&action_id) {
-                    match state {
-                        #[cfg(feature = "nova")]
-                        ActionState::ProofGenerated { proof, .. } => Some(proof.clone()),
-                        #[cfg(not(feature = "nova"))]
-                        ActionState::ProofGenerated { .. } => None, // Not needed for simulated sub
-                        _ => None,
-                    }
-                } else {
-                    None
-                };
-
-                // Note: We handle both Nova and non-Nova cases here
                 #[cfg(feature = "nova")]
                 let tx_hash = {
+                    let proof_opt = if let Some(state) = self.orchestrator.get_state(&action_id) {
+                        match state {
+                            ActionState::ProofGenerated { proof, .. } => Some(proof.clone()),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    };
+
                     if let Some(proof) = proof_opt {
                         self.blockchain_adapter.submit_unified_proof(&action_id, &proof, 1)
                             .map_err(|e: AdapterError| RuntimeError::InternalError(format!("{:?}", e)))?
                     } else {
-                        // Fallback – unlikely in Signed state, but required for safety
                         self.blockchain_adapter.submit_unified_proof(&action_id, &UnifiedProof { proof: vec![], root_hash: [0u8; 32] }, 1)
                             .map_err(|e: AdapterError| RuntimeError::InternalError(format!("{:?}", e)))?
                     }

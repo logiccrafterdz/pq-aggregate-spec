@@ -118,6 +118,19 @@ fn sign_with_dilithium(sk: &SecretKey, pk: &PublicKey, msg: &[u8]) -> Vec<u8> {
         public: [u8; PUBLICKEYBYTES],
         secret: [u8; SECRETKEYBYTES],
     }
+
+    // Compile-time check: RawKeypair and Keypair must have the same size.
+    const _: () = assert!(
+        core::mem::size_of::<RawKeypair>() == core::mem::size_of::<Keypair>(),
+        "RawKeypair size does not match pqc_dilithium::Keypair — layout may have changed"
+    );
+
+    // Runtime alignment check
+    assert_eq!(
+        core::mem::align_of::<RawKeypair>(),
+        core::mem::align_of::<Keypair>(),
+        "RawKeypair alignment does not match pqc_dilithium::Keypair"
+    );
     
     let raw = RawKeypair {
         public: public_bytes,
