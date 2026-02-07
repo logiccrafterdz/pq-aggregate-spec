@@ -80,3 +80,7 @@ assert!(verify(pk_root, msg, &proof));
 - **Latency**: Core aggregation ~0.28ms per signature (benchmarked on x86_64)
 - **Proof Size**: ~1.2KB (constant size regardless of validator count)
 - **Trust Model**: $t$-of-$n$ adaptive threshold with causal provenance
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
