@@ -16,6 +16,7 @@ std = ["sha3/std"]
 alloc = []
 nova = ["dep:nova-snark", "dep:bellpepper-core", "dep:bellpepper", "dep:ff", "dep:pasta_curves"]
 compression = ["dep:miniz_oxide"]
+runtime = ["dep:tokio"]
 
 [dependencies]
 # ML-DSA (Dilithium) - Level 3 (ML-DSA-65)
@@ -41,8 +42,8 @@ zeroize = { version = "1.8", default-features = false, features = ["derive"] }
 # Random number generation
 rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
-getrandom = { version = "0.2", features = ["js"] }
-tokio = { version = "1.36", features = ["sync", "time", "macros", "rt", "rt-multi-thread"] }
+getrandom = { version = "0.2" }
+tokio = { version = "1.36", features = ["sync", "time", "macros", "rt", "rt-multi-thread"], optional = true }
 
 # Nova dependencies (optional)
 nova-snark = { version = "0.37", optional = true }
@@ -54,6 +55,7 @@ pasta_curves = { version = "0.5", optional = true }
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 rand = "0.8"
+tokio = { version = "1.36", features = ["sync", "time", "macros", "rt", "rt-multi-thread"] }
 
 [[bench]]
 name = "benchmark"

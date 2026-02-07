@@ -1,7 +1,13 @@
-//! Incremental Merkle Tree for O(1) event logging.
+//! Incremental Merkle Tree for causal event logging.
 //!
-//! Stores leaves to ensure 100% consistency with PQ-Aggregate's MerkleTree
-//! padding logic. Maintaining O(log N) insertion time.
+//! # Performance (v0.1.0)
+//!
+//! Each `insert()` call rebuilds the entire tree from all leaves via
+//! `MerkleTree::from_leaves()`, making insertion **O(N)** per call and
+//! **O(N²)** amortized for N sequential inserts. This is acceptable for
+//! the spec prototype but must be replaced with an O(log N) incremental
+//! algorithm (e.g., sparse Merkle tree or hash-path update) before
+//! production use.
 
 use alloc::vec::Vec;
 use crate::utils::MerkleTree;

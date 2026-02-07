@@ -65,7 +65,7 @@ pub fn aggregate_proofs(
     }
 
     // Verify each ML-DSA signature against its public key
-    for (i, sig) in sigs.iter().enumerate() {
+    for (_i, sig) in sigs.iter().enumerate() {
         let signer_idx = sig.signer_index();
         if signer_idx >= pks.len() {
             return Err(PQAggregateError::InvalidInput {

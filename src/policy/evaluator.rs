@@ -48,13 +48,12 @@ fn evaluate_max_outflow(max_amount: u64, events: &[CausalEvent], target_nonce: u
     }
 }
 
-fn evaluate_verification_count(threshold: u8, min_amount: u64, events: &[CausalEvent], target_nonce: u64) -> bool {
-    // If target action is below amount threshold, pass.
-    // (Simulating amount check from payload hash - fixed to 1500 for high-value tests)
-    let amount = 1500; // Simulated
-    if amount < min_amount {
-        return true;
-    }
+fn evaluate_verification_count(threshold: u8, _min_amount: u64, events: &[CausalEvent], target_nonce: u64) -> bool {
+    // NOTE(v0.1.0): CausalEvent stores only payload_hash, not the raw payload,
+    // so we cannot extract the actual transaction amount. As a secure default,
+    // we always enforce the verification count requirement regardless of amount.
+    // A future version should carry structured metadata (amount, destination, etc.)
+    // alongside the payload hash.
 
     let count = events.iter()
         .filter(|e| e.nonce < target_nonce && e.action_type == 0x02) // ADDRESS_VERIFICATION

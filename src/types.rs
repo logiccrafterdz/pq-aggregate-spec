@@ -171,7 +171,10 @@ impl ZKSNARKProof {
         out.push(0x02);
         
         // Number of signatures (2 bytes, little-endian)
-        out.extend_from_slice(&(self.num_signatures as u16).to_le_bytes());
+        // Protocol maximum is 256 signers; assert in debug, saturate in release.
+        debug_assert!(self.num_signatures <= u16::MAX as usize, "num_signatures exceeds u16::MAX");
+        let num_sigs_u16 = u16::try_from(self.num_signatures).unwrap_or(u16::MAX);
+        out.extend_from_slice(&num_sigs_u16.to_le_bytes());
         
         // Public inputs hash (32 bytes)
         out.extend_from_slice(&self.public_inputs_hash);
@@ -256,11 +259,12 @@ impl ProofBatch {
     }
 
     /// Serialize and compress the entire batch.
+    ///
+    /// Returns `None` if serialization fails.
     #[cfg(feature = "compression")]
-    pub fn to_compressed_blob(&self) -> Vec<u8> {
-        // Serialization of Vec<ZKSNARKProof> is already handled by serde
-        let bincode = serde_json::to_vec(self).unwrap_or_default();
-        miniz_oxide::deflate::compress_to_vec(&bincode, 9) // Max compression
+    pub fn to_compressed_blob(&self) -> Option<Vec<u8>> {
+        let json = serde_json::to_vec(self).ok()?;
+        Some(miniz_oxide::deflate::compress_to_vec(&json, 9)) // Max compression
     }
 }
 

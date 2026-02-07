@@ -1,3 +1,5 @@
+#![cfg(feature = "runtime")]
+
 use pq_aggregate::runtime::{CausalGuardRuntime, ActionProposal, ActionStatus, RiskContext};
 use pq_aggregate::causal::CausalEventLogger;
 use pq_aggregate::policy::{PolicyEngine, BehavioralPolicy, PolicyCondition, RiskTier};
@@ -21,7 +23,19 @@ fn test_tc_4_1_happy_flow_500_dollars() {
     let mut runtime = setup_runtime();
     let agent_id = [0xAA; 32];
     
-    // 1. Propose action (Under $1000, so only Low risk)
+    // Build verification history (policy requires 3 address verifications)
+    for i in 0u64..3 {
+        let verification = ActionProposal {
+            agent_id,
+            action_type: 0x02, // ADDRESS_VERIFICATION
+            payload: vec![(i + 1) as u8],
+            risk_context: RiskContext { estimated_value_usd: None, destination_chain: None, is_cross_chain: false },
+        };
+        let aid = runtime.propose_action(verification, 1000 + i * 7000).unwrap();
+        runtime.process_action_lifecycle(aid).unwrap();
+    }
+
+    // 1. Propose action (now has sufficient verification history)
     let proposal = ActionProposal {
         agent_id,
         action_type: 0x01,
@@ -33,7 +47,7 @@ fn test_tc_4_1_happy_flow_500_dollars() {
         },
     };
 
-    let action_id = runtime.propose_action(proposal, 1000).unwrap();
+    let action_id = runtime.propose_action(proposal, 30000).unwrap();
     assert_eq!(runtime.get_action_status(&action_id), ActionStatus::Pending);
 
     // 2. Process Lifecycle: Pending -> Compliant
@@ -92,7 +106,7 @@ fn test_tc_4_3_idempotency_check() {
 
     let id1 = runtime.propose_action(proposal1, 1000).unwrap();
     
-    // Same payload, same agent, 2 seconds later
+    // Same payload, same agent, 7 seconds later (past rate limit window)
     let proposal2 = ActionProposal {
         agent_id,
         action_type: 0x01,
@@ -100,7 +114,7 @@ fn test_tc_4_3_idempotency_check() {
         risk_context: RiskContext { estimated_value_usd: Some(100), destination_chain: None, is_cross_chain: false },
     };
 
-    let id2 = runtime.propose_action(proposal2, 3000).unwrap();
+    let id2 = runtime.propose_action(proposal2, 8000).unwrap();
     
     assert_eq!(id1, id2);
 }

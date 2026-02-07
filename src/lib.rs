@@ -26,7 +26,7 @@
 //! let (sigs, proofs) = aggregate_sign(&secret_keys, &public_keys, msg, 3);
 //!
 //! // Aggregate: Combine into a single ZK proof
-//! let zk_proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+//! let zk_proof = aggregate_proofs(sigs, proofs, pk_root, msg, &public_keys).unwrap();
 //!
 //! // Verify: Check the aggregated proof
 //! assert!(verify(pk_root, msg, &zk_proof));
@@ -52,7 +52,9 @@ pub mod verifier;
 pub mod adapters;
 pub mod causal;
 pub mod policy;
+#[cfg(feature = "runtime")]
 pub mod runtime;
+#[cfg(feature = "runtime")]
 pub mod agents;
 
 #[cfg(feature = "nova")]

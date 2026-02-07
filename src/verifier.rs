@@ -328,8 +328,6 @@ pub fn verify_with_policy(
         crate::types::ThresholdPolicy::Fixed(req) => t == *req,
         crate::types::ThresholdPolicy::AtLeast(req) => t >= *req,
         crate::types::ThresholdPolicy::Percentage(pct) => {
-            let _req = crate::utils::calculate_adaptive_threshold(n, 0); // Base logic
-            // Custom percentage calculation
             let min_req = (n * (*pct as usize) + 99) / 100;
             t >= min_req
         },

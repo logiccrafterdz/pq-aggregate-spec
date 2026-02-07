@@ -1,3 +1,5 @@
+#![cfg(feature = "runtime")]
+
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::time::Duration;
@@ -48,11 +50,32 @@ async fn test_s_5_2_compliant_swap_solana_devnet() {
     let runtime = Arc::new(Mutex::new(setup_live_runtime()));
     let agent_id = [0xBB; 32];
     
-    // Low risk ($500) - should pass policy
+    // Build up verification history first (3 address verifications required by policy)
+    {
+        let mut rt = runtime.lock().await;
+        for i in 0u64..3 {
+            let verification = ActionProposal {
+                agent_id,
+                action_type: 0x02, // ADDRESS_VERIFICATION
+                payload: vec![(i + 1) as u8],
+                risk_context: RiskContext {
+                    estimated_value_usd: None,
+                    destination_chain: None,
+                    is_cross_chain: false,
+                },
+            };
+            // Space proposals 7 seconds apart to avoid rate limiting
+            let time = 1000 + i * 7000;
+            let aid = rt.propose_action(verification, time).unwrap();
+            rt.process_action_lifecycle(aid).unwrap(); // Evaluate policy
+        }
+    }
+
+    // Now propose the swap — should pass policy with sufficient verification history
     let proposal = ActionProposal {
         agent_id,
         action_type: 0x02,
-        payload: vec![1, 2, 3],
+        payload: vec![10, 20, 30], // Different payload than verifications
         risk_context: RiskContext {
             estimated_value_usd: Some(500),
             destination_chain: Some(1), // Solana
@@ -60,13 +83,13 @@ async fn test_s_5_2_compliant_swap_solana_devnet() {
         },
     };
 
-    let mut rt: tokio::sync::MutexGuard<CausalGuardRuntime> = runtime.lock().await;
-    let action_id = rt.propose_action(proposal, 1000).unwrap();
+    let mut rt = runtime.lock().await;
+    let action_id = rt.propose_action(proposal, 30000).unwrap();
     
     // Mocking the full successful lifecycle
     rt.process_action_lifecycle(action_id).unwrap(); // PENDING -> COMPLIANT
     rt.process_action_lifecycle(action_id).unwrap(); // COMPLIANT -> SIGNED
-    rt.process_action_lifecycle(action_id).unwrap(); // SIGNED -> SUBMITTED (Routes to Solana Devnet logic)
+    rt.process_action_lifecycle(action_id).unwrap(); // SIGNED -> SUBMITTED
     rt.process_action_lifecycle(action_id).unwrap(); // SUBMITTED -> CONFIRMED
     
     let status = rt.get_action_status(&action_id);

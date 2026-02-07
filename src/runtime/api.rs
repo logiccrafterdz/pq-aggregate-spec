@@ -84,7 +84,22 @@ impl CausalGuardRuntime {
         proposal: ActionProposal,
         current_time_ms: u64,
     ) -> Result<ActionId, RuntimeError> {
-        // 0. Idempotency Check
+        // 0. Validation
+        if proposal.payload.len() > 4096 {
+            return Err(RuntimeError::PayloadTooLarge);
+        }
+        if proposal.action_type == 0 || proposal.action_type > 0x05 {
+            return Err(RuntimeError::InvalidActionType);
+        }
+
+        // 1. Rate Limiting (Simple check: 1 proposal per 6 seconds avg for 10/min)
+        if let Some(last_time) = self.rate_limits.get(&proposal.agent_id) {
+            if current_time_ms < *last_time + 6000 {
+                return Err(RuntimeError::AgentRateLimited);
+            }
+        }
+
+        // 2. Idempotency Check
         let mut payload_hasher = Sha3_256::new();
         payload_hasher.update(&proposal.payload);
         let payload_hash: [u8; 32] = payload_hasher.finalize().into();
@@ -93,20 +108,6 @@ impl CausalGuardRuntime {
             return Ok(*existing_id);
         }
 
-        // 1. Validation
-        if proposal.payload.len() > 4096 {
-            return Err(RuntimeError::PayloadTooLarge);
-        }
-        if proposal.action_type == 0 || proposal.action_type > 0x05 {
-            return Err(RuntimeError::InvalidActionType);
-        }
-
-        // 2. Rate Limiting (Simple check: 1 proposal per 6 seconds avg for 10/min)
-        if let Some(last_time) = self.rate_limits.get(&proposal.agent_id) {
-            if current_time_ms < *last_time + 6000 {
-                return Err(RuntimeError::AgentRateLimited);
-            }
-        }
         self.rate_limits.insert(proposal.agent_id, current_time_ms);
 
         // 3. Mandatory Causal Logging
