@@ -23,11 +23,11 @@ solana-devnet = [
     "runtime",
     "std",
 ]
-
-
+ethereum-sepolia = ["dep:ethers", "dep:hex", "runtime"]
 
 [dependencies]
 # ML-DSA (Dilithium) - Level 3 (ML-DSA-65)
+
 pqc_dilithium = { version = "0.2", default-features = false, features = ["mode3"] }
 
 # Cryptographic primitives
@@ -66,6 +66,10 @@ pasta_curves = { version = "0.5", optional = true }
 # should use a separate workspace member with isolated dependencies.
 reqwest = { version = "0.11", features = ["json"], optional = true }
 bs58 = { version = "0.5", optional = true }
+
+# Ethereum Sepolia dependencies (optional)
+ethers = { version = "2.0", features = ["rustls", "ws"], optional = true }
+hex = { version = "0.4", optional = true }
 
 [dev-dependencies]
 
