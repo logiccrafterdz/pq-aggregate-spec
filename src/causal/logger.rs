@@ -1,9 +1,11 @@
 //! Causal Event Logger implementation.
 //!
 //! Enforces strict nonce ordering and temporal causal integrity.
+//! Supports both legacy (v0.01) and metadata-aware (v0.02) events.
 
 use alloc::vec::Vec;
-use crate::causal::event::CausalEvent;
+use crate::causal::event::{CausalEvent, EVENT_VERSION_LEGACY, EVENT_VERSION_METADATA};
+use crate::causal::metadata::StructuredMetadata;
 use crate::causal::merkle::IncrementalMerkleTree;
 use core::result::Result;
 use sha3::{Digest, Sha3_256};
@@ -45,7 +47,10 @@ impl CausalEventLogger {
         }
     }
 
-    /// Log a new event after verifying causal constraints.
+    /// Log a new legacy (v0.01) event without metadata.
+    ///
+    /// This method is preserved for backward compatibility with existing code.
+    /// Internally calls `log_event_with_metadata` with default metadata.
     pub fn log_event(
         &mut self,
         agent_id: &[u8; 32],
@@ -53,15 +58,51 @@ impl CausalEventLogger {
         payload: &[u8],
         current_time_ms: u64,
     ) -> Result<CausalEvent, LoggerError> {
+        self.log_event_internal(
+            agent_id,
+            action_type,
+            payload,
+            None, // No metadata = v0.01 event
+            current_time_ms,
+        )
+    }
+
+    /// Log a new metadata-aware (v0.02) event.
+    ///
+    /// The metadata is cryptographically bound to the payload hash,
+    /// enabling risk-adaptive policy enforcement.
+    pub fn log_event_with_metadata(
+        &mut self,
+        agent_id: &[u8; 32],
+        action_type: u8,
+        payload: &[u8],
+        metadata: StructuredMetadata,
+        current_time_ms: u64,
+    ) -> Result<CausalEvent, LoggerError> {
+        self.log_event_internal(
+            agent_id,
+            action_type,
+            payload,
+            Some(metadata),
+            current_time_ms,
+        )
+    }
+
+    /// Internal event logging implementation.
+    fn log_event_internal(
+        &mut self,
+        agent_id: &[u8; 32],
+        action_type: u8,
+        payload: &[u8],
+        metadata: Option<StructuredMetadata>,
+        current_time_ms: u64,
+    ) -> Result<CausalEvent, LoggerError> {
         // 1. Validate payload size
         if payload.len() > 4096 {
             return Err(LoggerError::PayloadTooLarge(payload.len()));
         }
 
-        // 2. Validate nonce monotonicity
-        // Note: For simplicity, we auto-increment if nonce isn't provided, 
-        // but here the spec implies we should handle it. Since the API doesn't 
-        // take a nonce, we use internal counter.
+        // 2. Auto-increment nonce (strictly monotonic)
         let new_nonce = self.last_nonce + 1;
 
         // 3. Validate timestamp regression (±500ms skew tolerance)
@@ -69,14 +110,24 @@ impl CausalEventLogger {
             return Err(LoggerError::TimestampRegression(current_time_ms));
         }
 
-        // 4. Create the event
-        let event = CausalEvent::new(
-            new_nonce,
-            current_time_ms,
-            *agent_id,
-            action_type,
-            payload,
-        );
+        // 4. Create the event based on metadata presence
+        let event = match metadata {
+            Some(m) => CausalEvent::new_with_metadata(
+                new_nonce,
+                current_time_ms,
+                *agent_id,
+                action_type,
+                payload,
+                &m,
+            ),
+            None => CausalEvent::new(
+                new_nonce,
+                current_time_ms,
+                *agent_id,
+                action_type,
+                payload,
+            ),
+        };
 
         // 5. Update state
         self.last_nonce = new_nonce;
@@ -101,21 +152,18 @@ impl CausalEventLogger {
     }
 
     /// Generate a Merkle proof for a specific nonce.
-    /// Since we use IncrementalMerkleTree with stored leaves, we can 
-    /// provide the proof.
     pub fn generate_proof(&self, nonce: u64) -> Option<Vec<[u8; 32]>> {
         if nonce == 0 || nonce > self.leaves.len() as u64 {
             return None;
         }
         
-        // In a real sparse/incremental tree, generating a past proof 
-        // requires the full tree or specific path history. 
-        // For this implementation, we simulate it using the leaves.
         let tree = crate::utils::MerkleTree::from_leaves(&self.leaves);
         tree.prove((nonce - 1) as usize).map(|p| p.siblings)
     }
 
     /// Verify the integrity of an event chain against a root.
+    ///
+    /// Supports both v0.01 (legacy) and v0.02 (metadata-aware) events.
     pub fn verify_event_chain(
         events: &[CausalEvent],
         expected_root: &[u8; 32],
@@ -124,29 +172,45 @@ impl CausalEventLogger {
             return expected_root == &[0u8; 32];
         }
 
-        // 1. Re-derive leaves from raw event data (don't trust stored fingerprints)
         let mut leaves = Vec::with_capacity(events.len());
         for (i, event) in events.iter().enumerate() {
-            // Recompute fingerprint from components
-            // We use the same logic as CausalEvent::new but without the struct overhead
-            let mut hasher = Sha3_256::new();
-            hasher.update(&event.nonce.to_le_bytes());
-            hasher.update(&event.timestamp.to_le_bytes());
-            hasher.update(&[event.action_type]);
-            hasher.update(&event.payload_hash);
-            let derived_fingerprint: [u8; 32] = hasher.finalize().into();
+            // 1. Version-aware fingerprint verification
+            let derived_fingerprint: [u8; 32] = match event.version {
+                EVENT_VERSION_LEGACY => {
+                    // v0.01: fingerprint = SHA3-256(nonce || timestamp || action_type || payload_hash)
+                    let mut hasher = Sha3_256::new();
+                    hasher.update(&event.nonce.to_le_bytes());
+                    hasher.update(&event.timestamp.to_le_bytes());
+                    hasher.update(&[event.action_type]);
+                    hasher.update(&event.payload_hash);
+                    hasher.finalize().into()
+                }
+                EVENT_VERSION_METADATA => {
+                    // v0.02: fingerprint = SHA3-256(nonce || timestamp || action_type || payload_hash || metadata_commitment)
+                    let mut hasher = Sha3_256::new();
+                    hasher.update(&event.nonce.to_le_bytes());
+                    hasher.update(&event.timestamp.to_le_bytes());
+                    hasher.update(&[event.action_type]);
+                    hasher.update(&event.payload_hash);
+                    hasher.update(&event.metadata_commitment);
+                    hasher.finalize().into()
+                }
+                _ => return false, // Unknown version
+            };
 
             if derived_fingerprint != event.behavioral_fingerprint {
                 return false; // Tampered!
             }
 
-            // Recompute leaf from nonce and fingerprint
+            // 2. Recompute leaf from nonce and fingerprint
             let mut leaf_hasher = Sha3_256::new();
             leaf_hasher.update(&event.nonce.to_le_bytes());
             leaf_hasher.update(&derived_fingerprint);
-            leaves.push(leaf_hasher.finalize().into());
+            let leaf: [u8; 32] = leaf_hasher.finalize().into();
+            leaves.push(leaf);
 
-            // 2. Strict ordering check
+
+            // 3. Strict ordering check
             if i > 0 {
                 if events[i].nonce <= events[i-1].nonce {
                     return false;
@@ -168,5 +232,15 @@ impl CausalEventLogger {
             return Ok(Vec::new());
         }
         Ok(self.events[start..actual_end].to_vec())
+    }
+
+    /// Get all events (for policy evaluation).
+    pub fn get_all_events(&self) -> &[CausalEvent] {
+        &self.events
+    }
+
+    /// Get the last event (for metadata extraction).
+    pub fn get_last_event(&self) -> Option<&CausalEvent> {
+        self.events.last()
     }
 }

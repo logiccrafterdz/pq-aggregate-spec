@@ -14,7 +14,11 @@ fn test_tc_2_1_min_verification_count() {
     
     let policy = BehavioralPolicy {
         name: "High Value Protection",
-        conditions: vec![PolicyCondition::MinVerificationCount { threshold: 3, for_amount_gte: 1000 }],
+        conditions: vec![PolicyCondition::MinVerificationCount { 
+            threshold: 3, 
+            min_amount_usd: None,  // Always enforce regardless of amount
+            cross_chain_only: false,
+        }],
         risk_tier: RiskTier::High,
     };
     let engine = PolicyEngine::new(vec![policy]);

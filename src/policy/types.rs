@@ -1,7 +1,7 @@
 //! Policy types for behavioral verification.
 //!
 //! Provides the definitions for policy conditions, risk tiers, and
-//! composite behavioral policies.
+//! composite behavioral policies with risk-adaptive thresholds.
 
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
@@ -41,12 +41,28 @@ impl RiskTier {
 pub enum PolicyCondition {
     /// Maximum cumulative outflow within a window (e.g., 24h).
     MaxDailyOutflow { max_amount: u64, currency: Currency },
-    /// Minimum number of specific verification actions required for high-value requests.
-    MinVerificationCount { threshold: u8, for_amount_gte: u64 },
+    
+    /// Minimum number of specific verification actions required.
+    ///
+    /// **Risk-adaptive enforcement**:
+    /// - `min_amount_usd`: Only enforce if transaction amount >= this value (in USD).
+    ///   If `None`, always enforce regardless of amount.
+    /// - `cross_chain_only`: Only enforce for cross-chain actions.
+    ///
+    /// **Legacy behavior** (v0.01 events without metadata):
+    /// - When metadata is unavailable, enforcement is conservative (always applied).
+    MinVerificationCount {
+        threshold: u8,
+        min_amount_usd: Option<u64>,
+        cross_chain_only: bool,
+    },
+    
     /// Minimum temporal separation between specific action types.
     MinTimeBetweenActions { action_type: u8, min_seconds: u64 },
+    
     /// Reject if multiple requests occur within a specific window.
     NoConcurrentRequests { window_seconds: u64 },
+    
     /// Restricted destination address prefixes.
     AddressWhitelist { allowed_prefixes: Vec<[u8; 20]> },
 }
