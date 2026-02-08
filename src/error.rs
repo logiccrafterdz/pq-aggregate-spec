@@ -5,7 +5,7 @@
 use alloc::string::String;
 
 /// Errors that can occur during PQ-Aggregate operations.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum PQAggregateError {
     /// Invalid threshold value (must be 1 <= t <= n)
     InvalidThreshold {
@@ -53,6 +53,13 @@ pub enum PQAggregateError {
     /// Nova SNARK error
     #[cfg(feature = "nova")]
     NovaError(String),
+    /// Cryptographic operation failed
+    CryptoError {
+        reason: String,
+    },
+    /// File I/O Error
+    #[cfg(feature = "std")]
+    IOError(std::io::Error),
 }
 
 
@@ -92,6 +99,13 @@ impl core::fmt::Display for PQAggregateError {
             #[cfg(feature = "nova")]
             Self::NovaError(reason) => {
                 write!(f, "Nova SNARK error: {}", reason)
+            }
+            Self::CryptoError { reason } => {
+                write!(f, "Crypto error: {}", reason)
+            }
+            #[cfg(feature = "std")]
+            Self::IOError(e) => {
+                write!(f, "IO error: {}", e)
             }
         }
     }

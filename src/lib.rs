@@ -50,6 +50,7 @@ pub mod types;
 pub mod utils;
 pub mod verifier;
 pub mod adapters;
+pub mod hsm; // Hardware Security Module integration
 pub mod causal;
 pub mod policy;
 #[cfg(feature = "runtime")]

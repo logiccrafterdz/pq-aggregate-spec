@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CausalGuard Security Assumptions",
+  "description": "Formal list of security assumptions for audit",
+  "type": "object",
+  "properties": {
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "criticality": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] }
+        },
+        "required": ["id", "description", "criticality"]
+      }
+    }
+  },
+  "assumptions": [
+    {
+      "id": "A.1",
+      "description": "The Aggregator is semi-honest; it follows protocol but may try to learn information.",
+      "criticality": "HIGH"
+    },
+    {
+      "id": "A.2",
+      "description": "The OS PRNG used by `rand` is cryptographically secure.",
+      "criticality": "HIGH"
+    },
+    {
+      "id": "A.3",
+      "description": "Solana and Ethereum finality guarantees hold.",
+      "criticality": "HIGH"
+    },
+    {
+      "id": "A.4",
+      "description": "The relayer is untrusted but at least one relayer is live.",
+      "criticality": "MEDIUM"
+    }
+  ]
+}
