@@ -75,14 +75,15 @@ fn bench_aggregate_proofs(c: &mut Criterion) {
         group.throughput(Throughput::Elements(t as u64));
         group.bench_with_input(
             BenchmarkId::new("config", name),
-            &(sigs.clone(), proofs.clone(), pk_root, msg),
-            |b, (sigs, proofs, pk_root, msg)| {
+            &(sigs.clone(), proofs.clone(), pk_root, msg, pks),
+            |b, (sigs, proofs, pk_root, msg, pks)| {
                 b.iter(|| {
                     let proof = aggregate_proofs(
                         sigs.clone(),
                         proofs.clone(),
                         *pk_root,
                         *msg,
+                        pks,
                     );
                     black_box(proof)
                 });
@@ -107,7 +108,7 @@ fn bench_verify(c: &mut Criterion) {
         let (sks, pks, pk_root) = setup(n);
         let msg = b"benchmark message for verification";
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, t);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         group.bench_with_input(
             BenchmarkId::new("threshold", name),
@@ -150,7 +151,7 @@ fn bench_full_flow(c: &mut Criterion) {
                         let msg_bytes = msg.as_bytes();
 
                         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg_bytes, t);
-                        let proof = aggregate_proofs(sigs, proofs, pk_root, msg_bytes).unwrap();
+                        let proof = aggregate_proofs(sigs, proofs, pk_root, msg_bytes, &pks).unwrap();
                         let valid = verify(pk_root, msg_bytes, &proof);
 
                         black_box(valid);
@@ -178,7 +179,7 @@ fn bench_proof_size(c: &mut Criterion) {
         let (sks, pks, pk_root) = setup(n);
         let msg = b"size test message";
         let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, *t);
-        let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+        let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
 
         println!("Threshold {}: proof size = {} bytes", t, proof.size());
 
@@ -190,7 +191,7 @@ fn bench_proof_size(c: &mut Criterion) {
                     // Just measure the aggregation which produces the proof
                     let (sks, pks, pk_root) = setup(n);
                     let (sigs, proofs) = aggregate_sign(&sks, &pks, msg, *t);
-                    let proof = aggregate_proofs(sigs, proofs, pk_root, msg).unwrap();
+                    let proof = aggregate_proofs(sigs, proofs, pk_root, msg, &pks).unwrap();
                     black_box(proof.size())
                 });
             },

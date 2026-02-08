@@ -1,4 +1,4 @@
-use pq_aggregate::causal::{CausalEventLogger, CausalEvent};
+use pq_aggregate::causal::CausalEventLogger;
 use pq_aggregate::policy::{PolicyEngine, BehavioralPolicy, PolicyCondition, RiskTier, Currency};
 
 

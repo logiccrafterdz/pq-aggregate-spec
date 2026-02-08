@@ -71,11 +71,11 @@ fn test_merkle_proof_verification() {
         logger.log_event(&agent_id, 0x01, b"data", 1000 + i).unwrap();
     }
     
-    let root = logger.get_current_root();
-    let proof_siblings = logger.generate_proof(5).expect("Proof for nonce 5 failed");
+    let _root = logger.get_current_root();
+    let _proof_siblings = logger.generate_proof(5).expect("Proof for nonce 5 failed");
     
     // Use the MerkleTree helper to verify
-    let event_5_leaf = [0u8; 32]; // We'll need the actual leaf
+    let _event_5_leaf = [0u8; 32]; // We'll need the actual leaf
     // Re-log or find it. For tests, we can just use the logger's internal knowledge for a second.
 }
 
