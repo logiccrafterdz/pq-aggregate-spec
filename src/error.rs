@@ -38,10 +38,23 @@ pub enum PQAggregateError {
         required: usize,
         provided: usize,
     },
+    /// Network/RPC error
+    NetworkError {
+        reason: String,
+    },
+    /// Policy violation (e.g., insufficient verifications)
+    PolicyViolation {
+        reason: String,
+    },
+    /// Rate limit exceeded
+    RateLimitExceeded {
+        reason: String,
+    },
     /// Nova SNARK error
     #[cfg(feature = "nova")]
     NovaError(String),
 }
+
 
 impl core::fmt::Display for PQAggregateError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -67,6 +80,15 @@ impl core::fmt::Display for PQAggregateError {
             Self::InsufficientSignatures { required, provided } => {
                 write!(f, "Insufficient signatures: {} required, {} provided", required, provided)
             }
+            Self::NetworkError { reason } => {
+                write!(f, "Network error: {}", reason)
+            }
+            Self::PolicyViolation { reason } => {
+                write!(f, "Policy violation: {}", reason)
+            }
+            Self::RateLimitExceeded { reason } => {
+                write!(f, "Rate limit exceeded: {}", reason)
+            }
             #[cfg(feature = "nova")]
             Self::NovaError(reason) => {
                 write!(f, "Nova SNARK error: {}", reason)
@@ -74,6 +96,7 @@ impl core::fmt::Display for PQAggregateError {
         }
     }
 }
+
 
 #[cfg(feature = "std")]
 impl std::error::Error for PQAggregateError {}

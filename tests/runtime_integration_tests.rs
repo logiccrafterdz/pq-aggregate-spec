@@ -10,7 +10,7 @@ fn setup_runtime() -> CausalGuardRuntime {
     // Policy for TC-4.1 and TC-4.2
     let safety_policy = BehavioralPolicy {
         name: "High Value Safety",
-        conditions: vec![PolicyCondition::MinVerificationCount { threshold: 3, for_amount_gte: 1000 }],
+        conditions: vec![PolicyCondition::MinVerificationCount { threshold: 3, min_amount_usd: Some(1000), cross_chain_only: false }],
         risk_tier: RiskTier::High,
     };
     

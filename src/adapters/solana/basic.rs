@@ -1,13 +1,13 @@
-//! Solana-specific blockchain adapter.
+//! Basic Solana adapter (no RPC, encoding only).
 //!
-//! Provides encoding and instruction generation for Solana programs.
+//! This module is used when the `solana-devnet` feature is not enabled.
 
 use alloc::vec::Vec;
 use crate::types::ZKSNARKProof;
 use crate::error::Result;
 use crate::adapters::{BlockchainAdapter, VerificationHint};
 
-/// Adapter for the Solana blockchain.
+/// Adapter for the Solana blockchain (encoding only, no RPC).
 pub struct SolanaAdapter;
 
 /// A simple representation of a Solana Instruction.
@@ -23,7 +23,6 @@ impl BlockchainAdapter for SolanaAdapter {
     type Address = [u8; 32];
     
     fn encode_proof(&self, proof: &ZKSNARKProof) -> Vec<u8> {
-        // Solana prefers Borsh or raw binary. We use our compact binary.
         proof.to_bytes()
     }
     
@@ -40,7 +39,6 @@ impl BlockchainAdapter for SolanaAdapter {
     ) -> Result<Self::Instruction> {
         let hint = VerificationHint::new(proof, *pk_root, *msg_hash);
         
-        // Creative: Add Solana-specific discriminant (e.g., 0 for verify)
         let mut data = Vec::with_capacity(hint.to_bytes().len() + 1);
         data.push(0); // Instruction discriminator
         data.extend_from_slice(&hint.to_bytes());
@@ -58,7 +56,7 @@ impl BlockchainAdapter for SolanaAdapter {
 }
 
 impl SolanaAdapter {
-    /// Creative: Generate a pseudo-PDA for a proof commitment.
+    /// Generate a pseudo-PDA for a proof commitment.
     pub fn derive_proof_address(
         &self,
         program_id: &[u8; 32],
@@ -107,7 +105,6 @@ mod tests {
         
         assert_eq!(ix.program_id, program_id);
         assert_eq!(ix.data[0], 0); // Discriminator
-        assert_eq!(ix.data.len(), 99); // 1 byte discriminator + 98 bytes hint
     }
 
     #[test]

@@ -10,9 +10,14 @@ use pq_aggregate::agents::defi_guardian::DeFiGuardianAgent;
 
 fn setup_live_runtime() -> CausalGuardRuntime {
     let logger = CausalEventLogger::new([0u8; 32]);
+    let condition = PolicyCondition::MinVerificationCount {
+        threshold: 3,
+        min_amount_usd: Some(100), // $100
+        cross_chain_only: false,
+    };
     let safety_policy = BehavioralPolicy {
         name: "High Value Safety",
-        conditions: vec![PolicyCondition::MinVerificationCount { threshold: 3, for_amount_gte: 1000 }],
+        conditions: vec![condition],
         risk_tier: RiskTier::High,
     };
     let engine = PolicyEngine::new(vec![safety_policy]);
